@@ -23,17 +23,4 @@ router.post('/login', async (req, res, next) => {
   } catch (error) { next(error) }
 })
 
-router.post('/activate-invite', async (req, res, next) => {
-  try {
-    const { email, inviteCode, password } = req.body
-    const user = await User.findOne({ email, status: 'Pending' }).select('+password +inviteCode')
-    if (!user || user.inviteCode !== String(inviteCode || '').trim().toUpperCase()) return res.status(400).json({ message: 'Email or invitation code is incorrect' })
-    user.password = password
-    user.status = 'Active'
-    user.inviteCode = undefined
-    await user.save()
-    res.json({ user: user.toSafeJSON(), token: signToken(user.id) })
-  } catch (error) { next(error) }
-})
-
 export default router
