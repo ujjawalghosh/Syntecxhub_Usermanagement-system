@@ -5,6 +5,7 @@ import { allowRoles, protect } from '../middleware/auth.js'
 import { sendInvitationEmail } from '../services/mailer.js'
 
 const router = Router()
+const serializeUser = (user) => ({ ...user.toSafeJSON(), id: user.id || user._id?.toString?.() })
 router.use(protect)
 
 router.get('/', async (req, res, next) => {
@@ -47,7 +48,11 @@ router.post('/transfer-admin', allowRoles('Admin'), async (req, res, next) => {
       await target.save()
       return res.status(404).json({ message: 'Current Admin not found' })
     }
-    res.json({ message: 'Admin role transferred', currentUser: updatedCurrentUser.toSafeJSON(), targetUser: target.toSafeJSON() })
+    res.json({
+      message: 'Admin role transferred',
+      currentUser: serializeUser(updatedCurrentUser),
+      targetUser: serializeUser(target)
+    })
   } catch (error) { next(error) }
 })
 router.patch('/:id', async (req, res, next) => {

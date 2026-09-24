@@ -11,14 +11,14 @@ const seedUsers = [
 ]
 
 const navItems = [{ label: 'Overview', icon: Grid2X2 }, { label: 'People', icon: Users, count: '24' }, { label: 'Permissions', icon: ShieldCheck }, { label: 'Settings', icon: Settings2 }]
-const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'http://localhost:5000/api'
-  : 'https://syntecxhub-usermanagement-system.onrender.com/api')
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const avatarColors = ['peach', 'lilac', 'mint', 'yellow', 'blue', 'rose']
 
 function normalizeUser(user, index = 0) {
+  if (!user) return user
   const name = user.name || 'Lumina user'
-  return { ...user, status: user.status || 'Active', joined: user.joined || new Date(user.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }), initials: name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(), color: avatarColors[index % avatarColors.length] }
+  const safeUser = { ...user, id: user.id || user._id || user._id?.toString?.(), status: user.status || 'Active' }
+  return { ...safeUser, joined: safeUser.joined || new Date(safeUser.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }), initials: name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(), color: avatarColors[index % avatarColors.length] }
 }
 
 async function request(path, options = {}) {

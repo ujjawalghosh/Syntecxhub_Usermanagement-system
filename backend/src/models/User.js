@@ -23,6 +23,11 @@ userSchema.pre('save', async function save() {
 })
 
 userSchema.methods.comparePassword = function comparePassword(candidate) { return bcrypt.compare(candidate, this.password) }
-userSchema.methods.toSafeJSON = function toSafeJSON() { const result = this.toObject(); delete result.password; return result }
+userSchema.methods.toSafeJSON = function toSafeJSON() {
+  const result = this.toObject()
+  delete result.password
+  result.id = this._id.toString()
+  return result
+}
 
 export default mongoose.model('User', userSchema)
