@@ -37,7 +37,7 @@ router.post('/transfer-admin', allowRoles('Admin'), async (req, res, next) => {
     const target = await User.findById(req.body.userId)
     if (!target) return res.status(404).json({ message: 'Target user not found' })
     if (target.id === req.user.id) return res.status(400).json({ message: 'Choose another member for admin transfer' })
-    if (target.status !== 'Active') return res.status(400).json({ message: 'Only active members can become Admin' })
+    if (target.status && target.status !== 'Active') return res.status(400).json({ message: 'Only active members can become Admin' })
     const previousRole = target.role
     target.role = 'Admin'
     await target.save()

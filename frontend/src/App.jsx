@@ -110,7 +110,15 @@ function App() {
       <section className="content-wrap">
         {activeNav === 'Overview' && <OverviewPage users={users} onNavigate={setActiveNav} />}
         {activeNav === 'People' && <PeoplePage session={session} users={users} filteredUsers={filteredUsers} query={query} setQuery={setQuery} role={role} setRole={setRole} view={view} setView={setView} onInvite={() => setShowModal(true)} onDeleteUser={handleDeleteUser} />}
-        {activeNav === 'Permissions' && <PermissionsPage isAdmin={session.user.role === 'Admin'} users={users} token={session.token} onUserUpdated={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? normalizeUser(updatedUser) : user))} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
+        {activeNav === 'Permissions' && <PermissionsPage isAdmin={session.user.role === 'Admin'} users={users} token={session.token} onUserUpdated={(updatedUsers) => {
+          const list = Array.isArray(updatedUsers) ? updatedUsers : [updatedUsers]
+          setUsers((current) => current.map((user) => {
+            const nextUser = list.find((member) => member.id === user.id)
+            return nextUser ? normalizeUser(nextUser) : user
+          }))
+          const currentUser = list.find((member) => member.id === session.user.id)
+          if (currentUser) setSession((prev) => ({ ...prev, user: normalizeUser(currentUser) }))
+        }} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
         {activeNav === 'Settings' && <SettingsPage user={session.user} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
       </section>
     </main>
@@ -153,8 +161,8 @@ function PermissionsPage({ isAdmin, users, token, onUserUpdated, onSaved }) {
     if (!selectedUser) return
     setSaving(true)
     try {
-      const updatedUser = await request(`/users/${selectedUser}`, { method: 'PATCH', token, body: { role: 'Admin' } })
-      onUserUpdated(updatedUser)
+      const result = await request('/users/transfer-admin', { method: 'POST', token, body: { userId: selectedUser } })
+      onUserUpdated([result.targetUser, result.currentUser])
       onSaved('Member is now an Admin')
       setSelectedUser('')
     } catch (error) { onSaved(error.message) } finally { setSaving(false) }
