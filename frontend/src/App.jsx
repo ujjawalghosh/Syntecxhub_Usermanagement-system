@@ -73,6 +73,28 @@ function App() {
       .catch((error) => setToast(error.message))
   }
 
+  function handleDeleteUser(userId, userName) {
+    const targetUser = users.find((user) => user.id === userId)
+    if (!targetUser) return
+    if (targetUser.id === session.user.id) {
+      setToast('Transfer admin rights before deleting your own profile')
+      return
+    }
+    if (targetUser.role === 'Admin' && users.filter((user) => user.role === 'Admin').length <= 1) {
+      setToast('Transfer admin role to another member before removing the last admin')
+      return
+    }
+    const confirmed = window.confirm(`Remove ${userName} from the workspace? This action cannot be undone.`)
+    if (!confirmed) return
+    request(`/users/${userId}`, { method: 'DELETE', token: session.token })
+      .then(() => {
+        setUsers((current) => current.filter((user) => user.id !== userId))
+        setToast(`${userName} was removed from the workspace`)
+        setTimeout(() => setToast(''), 3500)
+      })
+      .catch((error) => setToast(error.message))
+  }
+
   if (!session?.token) return <AuthPage onAuthenticated={handleAuth} />
 
   return <div className="app-shell">
@@ -87,7 +109,7 @@ function App() {
       <header className="topbar"><button className="mobile-menu"><Menu size={20} /></button><div className="breadcrumbs"><span>Workspace</span><span>/</span><strong>{activeNav}</strong></div><div className="top-actions"><button className="icon-button"><Bell size={18} /><i /></button><button className="help-button">?</button><button className="top-avatar">{session.user.name.slice(0, 2).toUpperCase()}</button></div></header>
       <section className="content-wrap">
         {activeNav === 'Overview' && <OverviewPage users={users} onNavigate={setActiveNav} />}
-        {activeNav === 'People' && <PeoplePage session={session} users={users} filteredUsers={filteredUsers} query={query} setQuery={setQuery} role={role} setRole={setRole} view={view} setView={setView} onInvite={() => setShowModal(true)} />}
+        {activeNav === 'People' && <PeoplePage session={session} users={users} filteredUsers={filteredUsers} query={query} setQuery={setQuery} role={role} setRole={setRole} view={view} setView={setView} onInvite={() => setShowModal(true)} onDeleteUser={handleDeleteUser} />}
         {activeNav === 'Permissions' && <PermissionsPage isAdmin={session.user.role === 'Admin'} users={users} token={session.token} onUserUpdated={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? normalizeUser(updatedUser) : user))} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
         {activeNav === 'Settings' && <SettingsPage user={session.user} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
       </section>
@@ -110,13 +132,14 @@ function OverviewPage({ users, onNavigate }) {
   </>
 }
 
-function PeoplePage({ session, users, filteredUsers, query, setQuery, role, setRole, view, setView, onInvite }) {
+function PeoplePage({ session, users, filteredUsers, query, setQuery, role, setRole, view, setView, onInvite, onDeleteUser }) {
+  const isAdmin = session.user.role === 'Admin'
   return <>
-    <div className="page-heading"><div><p className="eyebrow">People directory</p><h1>Good morning, {session.user.name.split(' ')[0]} <span>✦</span></h1><p className="subheading">Manage your team, roles and access in one clear view.</p></div><button className="primary-button" disabled={session.user.role !== 'Admin'} title={session.user.role !== 'Admin' ? 'Only admins can invite members' : 'Invite a member'} onClick={onInvite}><Plus size={17} /> Invite member</button></div>
+    <div className="page-heading"><div><p className="eyebrow">People directory</p><h1>Good morning, {session.user.name.split(' ')[0]} <span>✦</span></h1><p className="subheading">Manage your team, roles and access in one clear view.</p></div><button className="primary-button" disabled={!isAdmin} title={!isAdmin ? 'Only admins can invite members' : 'Invite a member'} onClick={onInvite}><Plus size={17} /> Invite member</button></div>
     <div className="metric-row"><Metric label="Total members" value={users.length} change="Live" accent="mint" /><Metric label="Active today" value={users.filter((user) => user.status !== 'Pending').length} change="Live" accent="peach" /><Metric label="Pending invites" value={users.filter((user) => user.status === 'Pending').length} change="Live" accent="lilac" /><div className="metric-note"><span className="pulse-dot" /> <strong>Workspace health</strong><span>Everything looks good</span></div></div>
     <div className="directory-head"><div><h2>All people <small>{filteredUsers.length} members</small></h2><p>Everyone with access to your workspace.</p></div><div className="view-toggle"><button className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><LayoutList size={16} /></button><button className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><Grid2X2 size={16} /></button></div></div>
     <div className="toolbar"><div className="search-box"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search people..." /></div><div className="filter-wrap"><Filter size={15} /><select value={role} onChange={(event) => setRole(event.target.value)}><option>All roles</option><option>Admin</option><option>Editor</option><option>Viewer</option></select><ChevronDown size={14} /></div><button className="filter-button"><Filter size={15} /> Filters <span>0</span></button></div>
-    {view === 'list' ? <UserTable users={filteredUsers} /> : <div className="user-grid">{filteredUsers.map((user) => <UserCard key={user.id} user={user} />)}</div>}
+    {view === 'list' ? <UserTable users={filteredUsers} isAdmin={isAdmin} onDeleteUser={onDeleteUser} /> : <div className="user-grid">{filteredUsers.map((user) => <UserCard key={user.id} user={user} isAdmin={isAdmin} onDeleteUser={onDeleteUser} />)}</div>}
     <footer className="table-footer"><span>Showing <strong>1–{filteredUsers.length}</strong> of <strong>{users.length}</strong> members</span><div><button disabled>←</button><button className="page-active">1</button><button>2</button><button>3</button><button>→</button></div></footer>
   </>
 }
@@ -184,8 +207,8 @@ function AuthPage({ onAuthenticated }) {
 }
 
 function Metric({ label, value, change, accent }) { return <div className={`metric-card ${accent}`}><span>{label}</span><div><strong>{value}</strong><em>{change}</em></div></div> }
-function UserTable({ users }) { return <div className="table-wrap"><table><thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Joined</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{users.map((user) => <tr key={user.id}><td><div className="person"><span className={`avatar ${user.color}`}>{user.initials}</span><span><strong>{user.name}</strong><small>{user.email}</small></span></div></td><td><span className="role-pill"><span />{user.role}</span></td><td><span className={`status ${user.status.toLowerCase()}`}><span />{user.status}</span></td><td className="joined">{user.joined}</td><td><button className="more-button"><MoreDots /></button></td></tr>)}</tbody></table>{users.length === 0 && <div className="empty-state">No people match that search.</div>}</div> }
-function UserCard({ user }) { return <article className="user-card"><div className="card-top"><span className={`avatar ${user.color}`}>{user.initials}</span><button className="more-button"><MoreDots /></button></div><strong>{user.name}</strong><small>{user.email}</small><div className="card-meta"><span className="role-pill"><span />{user.role}</span><span className={`status ${user.status.toLowerCase()}`}><span />{user.status}</span></div></article> }
+function UserTable({ users, isAdmin, onDeleteUser }) { return <div className="table-wrap"><table><thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Joined</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{users.map((user) => <tr key={user.id}><td><div className="person"><span className={`avatar ${user.color}`}>{user.initials}</span><span><strong>{user.name}</strong><small>{user.email}</small></span></div></td><td><span className="role-pill"><span />{user.role}</span></td><td><span className={`status ${user.status.toLowerCase()}`}><span />{user.status}</span></td><td className="joined">{user.joined}</td><td>{isAdmin ? <div className="row-actions"><button className="more-button"><MoreDots /></button><button className="danger-button" type="button" onClick={() => onDeleteUser(user.id, user.name)}>Remove</button></div> : <button className="more-button"><MoreDots /></button>}</td></tr>)}</tbody></table>{users.length === 0 && <div className="empty-state">No people match that search.</div>}</div> }
+function UserCard({ user, isAdmin, onDeleteUser }) { return <article className="user-card"><div className="card-top"><span className={`avatar ${user.color}`}>{user.initials}</span>{isAdmin && <button className="danger-button" type="button" onClick={() => onDeleteUser(user.id, user.name)}>Remove</button>}</div><strong>{user.name}</strong><small>{user.email}</small><div className="card-meta"><span className="role-pill"><span />{user.role}</span><span className={`status ${user.status.toLowerCase()}`}><span />{user.status}</span></div></article> }
 function MoreDots() { return <span className="more-dots"><i /><i /><i /></span> }
 
 export default App

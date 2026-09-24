@@ -65,6 +65,12 @@ router.patch('/:id', async (req, res, next) => {
 })
 router.delete('/:id', allowRoles('Admin'), async (req, res, next) => {
   try {
+    if (req.params.id === req.user.id) return res.status(400).json({ message: 'Transfer admin rights before deleting your own profile' })
+    const targetUser = await User.findById(req.params.id)
+    if (!targetUser) return res.status(404).json({ message: 'User not found' })
+    if (targetUser.role === 'Admin' && await User.countDocuments({ role: 'Admin' }) <= 1) {
+      return res.status(400).json({ message: 'Transfer admin role to another active member first' })
+    }
     const user = await User.findByIdAndDelete(req.params.id)
     if (!user) return res.status(404).json({ message: 'User not found' })
     res.json({ message: 'User deleted' })
