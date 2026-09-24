@@ -84,17 +84,74 @@ function App() {
     <main className="main-content">
       <header className="topbar"><button className="mobile-menu"><Menu size={20} /></button><div className="breadcrumbs"><span>Workspace</span><span>/</span><strong>{activeNav}</strong></div><div className="top-actions"><button className="icon-button"><Bell size={18} /><i /></button><button className="help-button">?</button><button className="top-avatar">{session.user.name.slice(0, 2).toUpperCase()}</button></div></header>
       <section className="content-wrap">
-        <div className="page-heading"><div><p className="eyebrow">People directory</p><h1>Good morning, {session.user.name.split(' ')[0]} <span>✦</span></h1><p className="subheading">Manage your team, roles and access in one clear view.</p></div><button className="primary-button" disabled={session.user.role !== 'Admin'} title={session.user.role !== 'Admin' ? 'Only admins can invite members' : 'Invite a member'} onClick={() => setShowModal(true)}><Plus size={17} /> Invite member</button></div>
-        <div className="metric-row"><Metric label="Total members" value={users.length} change="Live" accent="mint" /><Metric label="Active today" value={users.filter((user) => user.status !== 'Pending').length} change="Live" accent="peach" /><Metric label="Pending invites" value={users.filter((user) => user.status === 'Pending').length} change="Live" accent="lilac" /><div className="metric-note"><span className="pulse-dot" /> <strong>Workspace health</strong><span>Everything looks good</span></div></div>
-        <div className="directory-head"><div><h2>All people <small>{filteredUsers.length} members</small></h2><p>Everyone with access to your workspace.</p></div><div className="view-toggle"><button className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><LayoutList size={16} /></button><button className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><Grid2X2 size={16} /></button></div></div>
-        <div className="toolbar"><div className="search-box"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search people..." /></div><div className="filter-wrap"><Filter size={15} /><select value={role} onChange={(event) => setRole(event.target.value)}><option>All roles</option><option>Admin</option><option>Editor</option><option>Viewer</option></select><ChevronDown size={14} /></div><button className="filter-button"><Filter size={15} /> Filters <span>0</span></button></div>
-        {view === 'list' ? <UserTable users={filteredUsers} /> : <div className="user-grid">{filteredUsers.map((user) => <UserCard key={user.id} user={user} />)}</div>}
-        <footer className="table-footer"><span>Showing <strong>1–{filteredUsers.length}</strong> of <strong>{users.length}</strong> members</span><div><button disabled>←</button><button className="page-active">1</button><button>2</button><button>3</button><button>→</button></div></footer>
+        {activeNav === 'Overview' && <OverviewPage users={users} onNavigate={setActiveNav} />}
+        {activeNav === 'People' && <PeoplePage session={session} users={users} filteredUsers={filteredUsers} query={query} setQuery={setQuery} role={role} setRole={setRole} view={view} setView={setView} onInvite={() => setShowModal(true)} />}
+        {activeNav === 'Permissions' && <PermissionsPage isAdmin={session.user.role === 'Admin'} users={users} token={session.token} onUserUpdated={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? normalizeUser(updatedUser) : user))} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
+        {activeNav === 'Settings' && <SettingsPage user={session.user} onSaved={(message) => { setToast(message); setTimeout(() => setToast(''), 3000) }} />}
       </section>
     </main>
     {showModal && <div className="modal-backdrop" onClick={() => setShowModal(false)}><div className="invite-modal" onClick={(event) => event.stopPropagation()}><button className="close-modal" onClick={() => setShowModal(false)}><X size={18} /></button><span className="modal-icon"><Plus size={20} /></span><h2>Invite a teammate</h2><p>Give someone a place in your workspace.</p><form onSubmit={addUser}><label>Full name<input required name="name" placeholder="e.g. Alex Morgan" /></label><label>Email address<input required type="email" name="email" placeholder="alex@company.com" /></label><label>Role<select name="role"><option>Viewer</option><option>Editor</option><option>Admin</option></select></label><button className="primary-button" type="submit">Send invitation <ArrowUpRight size={16} /></button></form></div></div>}
     {toast && <div className="toast"><Check size={16} /> {toast}</div>}
   </div>
+}
+
+function OverviewPage({ users, onNavigate }) {
+  const activeUsers = users.filter((user) => user.status !== 'Pending').length
+  return <>
+    <div className="page-heading"><div><p className="eyebrow">Workspace overview</p><h1>Good morning, your workspace <span>✦</span></h1><p className="subheading">A quick view of your team and access health.</p></div><button className="primary-button" onClick={() => onNavigate('People')}><Users size={17} /> View people</button></div>
+    <div className="metric-row"><Metric label="Total members" value={users.length} change="Live" accent="mint" /><Metric label="Active members" value={activeUsers} change="Live" accent="peach" /><Metric label="Pending invites" value={users.length - activeUsers} change="Live" accent="lilac" /><div className="metric-note"><span className="pulse-dot" /> <strong>Workspace health</strong><span>Everything looks good</span></div></div>
+    <div className="directory-head"><div><h2>Workspace activity</h2><p>Keep your team structure clear and current.</p></div></div>
+    <div className="settings-panel">
+      <div className="settings-section"><div><h2>People directory</h2><p>Review members, roles and invitations in one place.</p></div><button className="secondary-button" onClick={() => onNavigate('People')}><Users size={15} /> Manage people</button></div>
+      <div className="settings-section"><div><h2>Role permissions</h2><p>Control what each role can access across the workspace.</p></div><button className="secondary-button" onClick={() => onNavigate('Permissions')}><ShieldCheck size={15} /> Review permissions</button></div>
+    </div>
+  </>
+}
+
+function PeoplePage({ session, users, filteredUsers, query, setQuery, role, setRole, view, setView, onInvite }) {
+  return <>
+    <div className="page-heading"><div><p className="eyebrow">People directory</p><h1>Good morning, {session.user.name.split(' ')[0]} <span>✦</span></h1><p className="subheading">Manage your team, roles and access in one clear view.</p></div><button className="primary-button" disabled={session.user.role !== 'Admin'} title={session.user.role !== 'Admin' ? 'Only admins can invite members' : 'Invite a member'} onClick={onInvite}><Plus size={17} /> Invite member</button></div>
+    <div className="metric-row"><Metric label="Total members" value={users.length} change="Live" accent="mint" /><Metric label="Active today" value={users.filter((user) => user.status !== 'Pending').length} change="Live" accent="peach" /><Metric label="Pending invites" value={users.filter((user) => user.status === 'Pending').length} change="Live" accent="lilac" /><div className="metric-note"><span className="pulse-dot" /> <strong>Workspace health</strong><span>Everything looks good</span></div></div>
+    <div className="directory-head"><div><h2>All people <small>{filteredUsers.length} members</small></h2><p>Everyone with access to your workspace.</p></div><div className="view-toggle"><button className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><LayoutList size={16} /></button><button className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><Grid2X2 size={16} /></button></div></div>
+    <div className="toolbar"><div className="search-box"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search people..." /></div><div className="filter-wrap"><Filter size={15} /><select value={role} onChange={(event) => setRole(event.target.value)}><option>All roles</option><option>Admin</option><option>Editor</option><option>Viewer</option></select><ChevronDown size={14} /></div><button className="filter-button"><Filter size={15} /> Filters <span>0</span></button></div>
+    {view === 'list' ? <UserTable users={filteredUsers} /> : <div className="user-grid">{filteredUsers.map((user) => <UserCard key={user.id} user={user} />)}</div>}
+    <footer className="table-footer"><span>Showing <strong>1–{filteredUsers.length}</strong> of <strong>{users.length}</strong> members</span><div><button disabled>←</button><button className="page-active">1</button><button>2</button><button>3</button><button>→</button></div></footer>
+  </>
+}
+
+function PermissionsPage({ isAdmin, users, token, onUserUpdated, onSaved }) {
+  const [roles, setRoles] = useState({ Admin: true, Editor: true, Viewer: true })
+  const [selectedUser, setSelectedUser] = useState('')
+  const [saving, setSaving] = useState(false)
+  const permissions = ['Invite and remove members', 'Manage workspace settings', 'Edit team profiles', 'View people directory']
+  async function makeAdmin() {
+    if (!selectedUser) return
+    setSaving(true)
+    try {
+      const updatedUser = await request(`/users/${selectedUser}`, { method: 'PATCH', token, body: { role: 'Admin' } })
+      onUserUpdated(updatedUser)
+      onSaved('Member is now an Admin')
+      setSelectedUser('')
+    } catch (error) { onSaved(error.message) } finally { setSaving(false) }
+  }
+  return <>
+    <div className="page-heading"><div><p className="eyebrow">Access control</p><h1>Permissions <span>✦</span></h1><p className="subheading">Define the level of access each role has in your workspace.</p></div><span className="role-badge admin">{isAdmin ? 'Admin access' : 'View only'}</span></div>
+    <div className="settings-panel"><div className="settings-section"><div><h2>Workspace roles</h2><p>Roles keep permissions consistent as your team grows.</p></div><div className="settings-options">{Object.keys(roles).map((roleName) => <label className="setting-toggle" key={roleName}><input type="checkbox" checked={roles[roleName]} onChange={() => setRoles((current) => ({ ...current, [roleName]: !current[roleName] }))} disabled={roleName === 'Admin' || !isAdmin} /><span><strong>{roleName}</strong><small>{roleName === 'Admin' ? 'Full workspace control' : roleName === 'Editor' ? 'Can update people and workspace content' : 'Can view workspace information'}</small></span></label>)}</div></div>
+      <div className="settings-section"><div><h2>Permission matrix</h2><p>See the default capabilities attached to each role.</p></div><div className="table-wrap"><table><thead><tr><th>Permission</th><th>Admin</th><th>Editor</th><th>Viewer</th></tr></thead><tbody>{permissions.map((permission, index) => <tr key={permission}><td>{permission}</td><td>{'Yes'}</td><td>{index < 3 ? 'Yes' : 'Yes'}</td><td>{index === 3 ? 'Yes' : 'No'}</td></tr>)}</tbody></table></div></div>
+      {isAdmin && <div className="transfer-admin"><div><h2>Promote a member</h2><p>Give an existing active member full workspace access.</p></div><div className="transfer-controls"><select value={selectedUser} onChange={(event) => setSelectedUser(event.target.value)}><option value="">Choose a member</option>{users.filter((user) => user.role !== 'Admin' && user.status !== 'Pending').map((user) => <option value={user.id} key={user.id}>{user.name} · {user.role}</option>)}</select><button className="primary-button" onClick={makeAdmin} disabled={!selectedUser || saving}>{saving ? 'Updating...' : 'Make admin'}</button></div></div>}
+    </div>
+  </>
+}
+
+function SettingsPage({ user, onSaved }) {
+  const [name, setName] = useState(user.name)
+  const [email, setEmail] = useState(user.email)
+  const [notifications, setNotifications] = useState(true)
+  function saveSettings(event) { event.preventDefault(); onSaved('Workspace settings saved') }
+  return <>
+    <div className="page-heading"><div><p className="eyebrow">Workspace settings</p><h1>Settings <span>✦</span></h1><p className="subheading">Keep your workspace details and notifications up to date.</p></div></div>
+    <div className="settings-panel"><form onSubmit={saveSettings}><div className="settings-section"><div><h2>Profile details</h2><p>These details are visible to your workspace members.</p></div><div className="settings-fields"><label>Full name<input value={name} onChange={(event) => setName(event.target.value)} required /></label><label>Email address<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required /></label></div></div><div className="settings-section"><div><h2>Notifications</h2><p>Choose which updates you want to receive.</p></div><div className="settings-options"><label className="setting-toggle"><input type="checkbox" checked={notifications} onChange={(event) => setNotifications(event.target.checked)} /><span><strong>Workspace activity</strong><small>Receive updates about invitations and member changes.</small></span></label></div></div><div className="settings-footer"><span>Changes apply to your account immediately.</span><button className="primary-button" type="submit"><Check size={15} /> Save changes</button></div></form></div>
+  </>
 }
 
 function AuthPage({ onAuthenticated }) {
