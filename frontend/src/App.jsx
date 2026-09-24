@@ -11,7 +11,9 @@ const seedUsers = [
 ]
 
 const navItems = [{ label: 'Overview', icon: Grid2X2 }, { label: 'People', icon: Users, count: '24' }, { label: 'Permissions', icon: ShieldCheck }, { label: 'Settings', icon: Settings2 }]
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000/api'
+  : 'https://syntecxhub-usermanagement-system.onrender.com/api')
 const avatarColors = ['peach', 'lilac', 'mint', 'yellow', 'blue', 'rose']
 
 function normalizeUser(user, index = 0) {
